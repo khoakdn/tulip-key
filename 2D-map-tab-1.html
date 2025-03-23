@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Housing map</title>
+    <link rel="stylesheet" href="css/style.css">
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+    </head>
+    
+</head>
+<body>
+    <header>
+        <h1 class="logo">Tulip Key</h1>
+        <nav>
+            <ul>
+                <li><a href="index.html">Home</a></li>
+                <li><a href="about.html">About us</a></li>
+                <li><a href="contact.html"><button class="contact-btn">Contact</button></a></li>
+            </ul>
+        </nav>
+    </header>
+    
+    <!-- Search bar for district -->
+    <div class="search-container">
+        <input type="text" id="city" value="Eindhoven" readonly>
+        <div class="district-search">
+            <input type="text" id="district" placeholder="Enter district">
+            <button id="searchBtn">🔍</button>
+            <button id="toggleFilterBtn" class="arrow">▼</button>
+        </div>
+        
+        <!-- Move the filter div here, inside the search-container -->
+        <div class="filters" id="filterPanel">
+            <div class="filter-row">
+                <div>
+                    <label for="propertyType">Property Type:</label>
+                    <select id="propertyType">
+                        <option value="">Any</option>
+                        <option value="Apartment">Apartment</option>
+                        <option value="House">House</option>
+                    </select>
+                </div>
+            </div>
+    
+            <label for="priceRange">Price Range (€):</label>
+            <input type="range" id="priceRange" min="100000" max="1000000" step="50000" value="500000">
+            <span id="priceValue">€500,000</span>
+
+       
+            <label for="bedroomType">Bedrooms:</label>
+            <select id="bedroomType">
+                <option value="">Any</option>
+                <option value="1">1 Bedroom</option>
+                <option value="2">2 Bedrooms</option>
+                <option value="3">3+ Bedrooms</option>
+             </select>
+         
+    
+            <label for="sizeRange">Size (m²):</label>
+            <input type="range" id="sizeRange" min="50" max="300" step="10" value="100">
+            <span id="sizeValue">100 m²</span>
+        </div>
+    </div>
+    
+    
+   <!-- Map display -->
+   <div id="map"></div>
+
+   <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
+   <script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize Eindhoven map
+    const map = L.map('map').setView([51.4416, 5.4697], 12);
+
+    // Add OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    // Move zoom control to top right
+    map.zoomControl.setPosition('topright');
+
+    // Function to get color based on price class
+    function getPriceColor(priceClass) {
+        if (priceClass.toLowerCase().includes("duur")) return "#FF0000";  // Expensive (red)
+        if (priceClass.toLowerCase().includes("middelduur")) return "#0000FF";  // Moderate (blue)
+        return "#008000";  // Cheap (green)
+    }
+
+    // Fetch housing data from Eindhoven open data API
+    fetch("https://data.eindhoven.nl/api/explore/v2.1/catalog/datasets/woningbouwprojecten-vlak/records?limit=100")
+        .then(response => response.json())
+        .then(data => {
+            data.results.forEach(record => {
+                if (record.geo_shape && record.prijsklasse) {
+                    const coordinates = record.geo_shape.geometry.coordinates[0]; // Polygon shape
+                    const priceClass = record.prijsklasse;
+                    const color = getPriceColor(priceClass);
+
+                    // Convert to Leaflet format
+                    const latlngs = coordinates.map(coord => [coord[1], coord[0]]);
+
+                    // Create a polygon
+                    const polygon = L.polygon(latlngs, {
+                        color: color,
+                        fillColor: color,
+                        fillOpacity: 0.5,
+                        weight: 2
+                    }).addTo(map);
+
+                    // Construct popup content
+                    const popupContent = `
+                        <strong>Prijs Klasse:</strong> ${priceClass} <br>
+                        <strong>Totaal Woningen:</strong> ${record.totaalaantalwoningen || "Onbekend"} <br>
+                        <strong>Opleverjaar:</strong> ${record.opleverjaardeelgebied || "Onbekend"} <br>
+                        <strong>Status:</strong> ${record.nieuw_verbouw || "Onbekend"} <br>
+                        <strong>Woningtype:</strong> ${record.woningtype || "Onbekend"} <br>
+                        <img src="./images/pic1.jpg" alt="Neighborhood image" style="width: 100%; height: auto; margin-top: 5px;">
+                    `;
+
+                    // Attach popup to polygon
+                    polygon.bindPopup(popupContent);
+                }
+            });
+        })
+        .catch(error => console.error("Error fetching API data:", error));
+});
+
+    </script>
+    
+ 
+   
+   <!-- Legend with different categories -->
+   <div class="legend">
+       <button class="housing" data-href="./2D-map-tab-1.html"><span>Housing</span></button>
+       <button class="density active"><span>Population density</span></button>
+       <button class="schools" data-href="./2D-map-tab-3.html"><span>Schools/Universities</span></button>
+       <button class="parks" data-href="./2D-map-tab-4.html"><span>Parks/Greenery</span></button>
+       <button class="shops" data-href="./2D-map-tab-5.html"><span>Shops/Entertainment</span></button>
+   </div>
+
+   <script>
+       document.addEventListener('DOMContentLoaded', function() {
+           document.querySelectorAll('.legend button').forEach(button => {
+               button.addEventListener('click', function() {
+                   const url = this.getAttribute('data-href');
+                   if (url) {
+                       window.location.href = url;
+                   }
+               });
+           });
+       });
+   </script>
+    
+    <!-- Legend with different categories -->
+    <div class="legend">
+        <button class="housing active"><span>Housing</span></button>
+        <button class="density" data-href="./2D-map-tab-2.html"><span>Population density</span></button>
+        <button class="schools" data-href="./2D-map-tab-3.html"><span>Schools/Universities</span></button>
+        <button class="parks" data-href="./2D-map-tab-4.html"><span>Parks/Greenery</span></button>
+        <button class="shops" data-href="./2D-map-tab-5.html"><span>Shops/Entertainment</span></button>
+    </div>
+    
+    
+    
+    <!-- Include MapTiler script and custom script -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.legend button').forEach(button => {
+                button.addEventListener('click', function() {
+                    const url = this.getAttribute('data-href');
+                    if (url) {
+                        window.location.href = url;
+                        // Or use window.open(url, '_blank'); to open in a new tab
+                    }
+                });
+            });
+        });
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+        const filterPanel = document.getElementById("filterPanel");
+        const toggleFilterBtn = document.getElementById("toggleFilterBtn");
+        const arrow = document.querySelector("#toggleFilterBtn .arrow"); // Correct selector
+
+        if (filterPanel && toggleFilterBtn) {
+            // Initialize state
+            filterPanel.classList.remove("visible");
+
+            toggleFilterBtn.addEventListener("click", (e) => {
+                e.preventDefault(); // Prevent form submission
+                filterPanel.classList.toggle("visible");
+                arrow.classList.toggle("rotate"); // Toggle arrow rotation
+            });
+
+            // Update price & size values
+            document.getElementById("priceRange").addEventListener("input", function() {
+                document.getElementById("priceValue").textContent = `€${Number(this.value).toLocaleString()}`;
+            });
+
+            document.getElementById("sizeRange").addEventListener("input", function() {
+                document.getElementById("sizeValue").textContent = `${this.value} m²`;
+            });
+        }
+    });
+    </script>
+  
+
+    
+</body>
+</html>

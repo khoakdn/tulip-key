@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Population Density Map</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+</head>
+<body>
+    <header>
+        <h1 class="logo">Tulip Key</h1>
+        <nav>
+            <ul>
+                <li><a href="index.html">Home</a></li>
+                <li><a href="about.html">About us</a></li>
+                <li><a href="contact.html"><button class="contact-btn">Contact</button></a></li>
+            </ul>
+        </nav>
+    </header>
+    
+   <!-- Search bar for district -->
+    <div class="search-container">
+        <input type="text" id="city" value="Eindhoven" readonly> <!-- Static -->
+        <div class="district-search">
+            <input type="text" id="district" placeholder="Enter district">
+            <button id="searchBtn">🔍</button> <!-- Search icon -->
+        </div>
+    </div>
+    
+    <!-- Map display -->
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+        const map = L.map('map').setView([51.4416, 5.4697], 12); // Eindhoven
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        map.zoomControl.setPosition('topright'); // Move zoom control to the right
+
+        // Function to search for a district in Eindhoven
+        function searchDistrict() {
+                const district = document.getElementById("district").value.trim();
+                if (!district) return; // If no input, do nothing
+        
+                const query = `Eindhoven, ${district}`;
+                const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`;
+        
+                fetch(nominatimUrl)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.length > 0) {
+                            const { lat, lon } = data[0];
+                            map.setView([lat, lon], 16); // Zoom in on the district
+                        } else {
+                            alert("District not found!");
+                        }
+                    })
+                    .catch(error => console.error("Error fetching location:", error));
+            }
+        
+            // Event listener for search button click
+            document.getElementById("searchBtn").addEventListener("click", searchDistrict);
+        
+            // Event listener for Enter key in the input field
+            document.getElementById("district").addEventListener("keypress", (e) => {
+                if (e.key === "Enter") searchDistrict();
+            });
+
+        // Fetch data from the API
+        fetch("https://data.eindhoven.nl/api/explore/v2.1/catalog/datasets/selectiontableasjsonashx/records?limit=100")
+            .then(response => response.json())
+            .then(data => {
+                console.log("Full API Response:", data); // Debugging line
+
+                if (!data.results || !Array.isArray(data.results)) {
+                    console.error("Unexpected API structure:", data);
+                    return;
+                }
+
+                data.results.forEach(record => {
+                    console.log("Record:", record); // Debug each entry
+
+                    // Ensure geo_point_2d exists and has lat/lon
+                    if (record.geo_point_2d && record.geo_point_2d.lon && record.geo_point_2d.lat) {
+                        const lat = record.geo_point_2d.lat;
+                        const lon = record.geo_point_2d.lon;
+                        const population = record.Inwoners || "N/A"; // Adjust this based on actual field name
+
+                        // If no density field exists, you may need to calculate it using area
+                        const populationDensity = record.population_density || (population / (record.Area || 1));
+
+                        // Assign color based on density
+                        let color = 'blue';
+                        if (populationDensity > 1000) color = 'orange';
+                        if (populationDensity > 3000) color = 'red';
+
+                        // Create a circle marker
+                        const marker = L.circleMarker([lat, lon], {
+                            radius: 6,
+                            color: color,
+                            fillColor: color,
+                            fillOpacity: 0.6
+                        }).addTo(map);
+
+                        // Popup content
+                        const popupContent = `<strong>District:</strong> ${record.Geo || "Unknown"}<br>
+                                            <strong>Population:</strong> ${population}<br>
+                                            <strong>Density:</strong> ${populationDensity} per km²`;
+
+                        // Show popup on hover
+                        marker.on('mouseover', function (e) {
+                            this.bindPopup(popupContent).openPopup();
+                        });
+
+                        // Close popup when the mouse leaves
+                        marker.on('mouseout', function (e) {
+                            this.closePopup();
+                        });
+                    } else {
+                        console.warn("Missing geolocation for record:", record);
+                    }
+                });
+            })
+            .catch(error => console.error("Error fetching API data:", error));
+    });
+
+    </script>
+
+    
+    <!-- Legend with different categories -->
+    <div class="legend">
+        <button class="housing" data-href="./2D-map-tab-1.html"><span>Housing</span></button>
+        <button class="density active"><span>Population density</span></button>
+        <button class="schools" data-href="./2D-map-tab-3.html"><span>Schools/Universities</span></button>
+        <button class="parks" data-href="./2D-map-tab-4.html"><span>Parks/Greenery</span></button>
+        <button class="shops" data-href="./2D-map-tab-5.html"><span>Shops/Entertainment</span></button>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.legend button').forEach(button => {
+                button.addEventListener('click', function() {
+                    const url = this.getAttribute('data-href');
+                    if (url) {
+                        window.location.href = url;
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
